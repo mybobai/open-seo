@@ -33,6 +33,7 @@ const required = [
   "teamDomain",
   "policyAud",
   "serviceTokenClientId",
+  "googleClientId",
 ];
 const missing = required.filter((key) => !config[key]);
 if (missing.length > 0) {
@@ -96,6 +97,9 @@ rewrite("dist/server/wrangler.json", (worker) => {
     TEAM_DOMAIN: config.teamDomain,
     POLICY_AUD: config.policyAud,
     ACCESS_SERVICE_TOKEN_CLIENT_ID: config.serviceTokenClientId,
+    // Search Console and GA4 connections. GOOGLE_CLIENT_SECRET and
+    // BETTER_AUTH_SECRET are worker secrets.
+    GOOGLE_CLIENT_ID: config.googleClientId,
     AUDIT_BROWSER_RENDERING: "true",
   };
   // The Access application covers only the custom domain, so the
