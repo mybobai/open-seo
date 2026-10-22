@@ -32,6 +32,9 @@ declare namespace Cloudflare {
     BYPASS_EMAIL_VERIFICATION?: string;
     TEAM_DOMAIN?: string;
     POLICY_AUD?: string;
+    // Client id of the one Cloudflare Access service token admitted as a
+    // machine user (cloudflare_access mode).
+    ACCESS_SERVICE_TOKEN_CLIENT_ID?: string;
     POSTHOG_PUBLIC_KEY?: string;
     POSTHOG_HOST?: string;
     BETTER_AUTH_SECRET?: string;

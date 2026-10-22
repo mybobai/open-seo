@@ -1,0 +1,11 @@
+{
+  "hostname": "seo.mybobai.com",
+  "d1DatabaseId": "dc753b0c-bc71-4ac3-be49-c93b2167cc7a",
+  "d1DatabaseName": "open-seo",
+  "kvNamespaceId": "2366f8b094ff4e0ba6d041ee9e7cb15f",
+  "oauthKvNamespaceId": "6643f4856d3e4e8eb72fd1b8c73e8404",
+  "r2BucketName": "open-seo",
+  "teamDomain": "https://altys.cloudflareaccess.com",
+  "policyAud": "8a7919c0225cb4ce959bd75048ccf607afd0dd9431e2d0af5dd7d691794d62a2",
+  "serviceTokenClientId": "529ed0aa944c2cc184f13a1e91a8d14c.access"
+}

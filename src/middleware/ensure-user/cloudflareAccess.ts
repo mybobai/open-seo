@@ -87,6 +87,17 @@ export async function resolveCloudflareAccessContext(
     throw classifyAccessVerificationError(error);
   }
 
+  // Service-token requests carry the token's client id in common_name and no
+  // user identity. Only the one token named in the config is admitted, as a
+  // fixed user, so another token the Access policy might allow gets nothing.
+  const serviceTokenClientId = env.ACCESS_SERVICE_TOKEN_CLIENT_ID?.trim();
+  if (serviceTokenClientId && payload.common_name === serviceTokenClientId) {
+    return resolveSharedWorkspaceContext(
+      `access-service-token:${serviceTokenClientId}`,
+      `${serviceTokenClientId}@service-token.invalid`,
+    );
+  }
+
   const userId = typeof payload.sub === "string" ? payload.sub : null;
   const userEmail = typeof payload.email === "string" ? payload.email : null;
 

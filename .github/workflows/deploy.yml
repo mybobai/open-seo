@@ -1,0 +1,59 @@
+name: Deploy OpenSEO
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Checks, then deploys seo.mybobai.com with scripts/altys-deploy.mjs.
+  # Nothing is deployed unless the checks pass.
+  deploy:
+    if: github.repository == 'mybobai/open-seo' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment:
+      name: prod
+      url: https://seo.mybobai.com
+    permissions:
+      contents: read
+      id-token: write
+    # Never interrupt an in-flight deployment; a newer push replaces an older pending run.
+    concurrency:
+      group: deploy-openseo-prod
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run ci:check
+      - run: pnpm run test:ci
+      - name: Authenticate to Google Cloud without a stored key
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: altys-prod
+          workload_identity_provider: projects/${{ vars.GOOGLE_CLOUD_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/bob-ai-github-pool/providers/bob-ai-github-provider
+          # Can read only the deploy token below; not the backend's admin deployer.
+          service_account: bob-ai-open-seo-cicd@altys-prod.iam.gserviceaccount.com
+      # The Cloudflare deploy token lives in Secret Manager, written by Pulumi
+      # (mybobai/backend infra); the repository stores no credentials.
+      - name: Read the Cloudflare deploy token
+        id: secrets
+        uses: google-github-actions/get-secretmanager-secrets@v2
+        with:
+          secrets: |-
+            cloudflare_api_token:altys-prod/OPENSEO_DEPLOY_CLOUDFLARE_API_TOKEN
+      - name: Deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ steps.secrets.outputs.cloudflare_api_token }}
+          CLOUDFLARE_ACCOUNT_ID: e9331aaf8e68aa7fcac380c8aaa1a7eb
+        run: node scripts/altys-deploy.mjs
