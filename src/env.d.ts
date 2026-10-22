@@ -58,6 +58,9 @@ declare namespace Cloudflare {
     // Bound only on hosted production; everywhere else every flag reads off.
     // oxlint-disable-next-line typescript-eslint/consistent-type-imports
     FLAGS?: import("@cloudflare/workers-types").Flagship;
+    // Client id of the one Cloudflare Access service token admitted as a
+    // machine user (cloudflare_access mode).
+    ACCESS_SERVICE_TOKEN_CLIENT_ID?: string;
     POSTHOG_PUBLIC_KEY?: string;
     POSTHOG_HOST?: string;
     BETTER_AUTH_SECRET?: string;
