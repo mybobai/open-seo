@@ -288,6 +288,8 @@ export async function fetchRankCheckTaskResult(input: {
   };
 }
 
+const PARTIAL_RESULTS_STATUS_CODE = 40106;
+
 type SerpTaskOutcome =
   | { status: "pending" }
   | { status: "failed"; message: string }
@@ -309,6 +311,19 @@ export async function fetchSerpTaskResult(
 
   if (isTaskInProgress(task)) {
     return { status: "pending" };
+  }
+
+  // 40106 "Task completed with partial results": DataForSEO couldn't fetch some
+  // pages, usually because Google has fewer results than the requested depth
+  // (niche keywords at depth 50+). It fails the same keywords on every read,
+  // so keep the pages it did return, which hold every result Google has.
+  if (task.status_code === PARTIAL_RESULTS_STATUS_CODE) {
+    const items = parseTaskItems(
+      "google-organic-task-get-advanced",
+      task,
+      serpSnapshotItemSchema,
+    );
+    if (items.length > 0) return { status: "completed", items };
   }
 
   if (task.status_code !== 20000) {

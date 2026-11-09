@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- one file per DataForSEO section, mirroring serp.ts */
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/lib/runtime-env", () => ({
@@ -255,6 +256,26 @@ describe("rank check task queue", () => {
     });
 
     expect(outcome).toMatchObject({ result: { position: 2 } });
+  });
+
+  // 40106: Google has fewer results than the depth asked for.
+  it("reads the pages a partial-results task returned", async () => {
+    const items = [{ type: "organic", rank_group: 5, domain: "example.com" }];
+    const task = { status_code: 40106, result: [{ items }] };
+    const body = { status_code: 20000, tasks: [task] };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(body)),
+    );
+
+    await expect(
+      fetchRankCheckTaskResult({
+        taskId: "task-a",
+        keywordId: "kw-1",
+        keyword: "alpha",
+        targetDomain: "example.com",
+      }),
+    ).resolves.toMatchObject({ result: { position: 5 } });
   });
 });
 
