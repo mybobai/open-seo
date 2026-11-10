@@ -3,7 +3,9 @@
 #
 # Fast-forwards the `upstream` branch to every-app/main, rebases `main` onto
 # it, and after confirmation force-pushes `main`, which deploys
-# seo.mybobai.com through GitHub Actions.
+# seo.mybobai.com through GitHub Actions. With --no-push it stops after the
+# rebase; the weekly sync workflow (.github/workflows/sync-upstream.yml) runs
+# it that way, checks the result, then pushes.
 #
 # The fork runs only its own deploy workflow. Files it deleted (the upstream
 # workflows) conflict whenever upstream edits them; those conflicts are
@@ -13,6 +15,11 @@
 #
 # Written for macOS's bash 3.2: no arrays or mapfile.
 set -euo pipefail
+
+push=ask
+if [[ "${1:-}" == "--no-push" ]]; then
+  push=no
+fi
 
 cd "$(git rev-parse --show-toplevel)"
 
@@ -84,6 +91,10 @@ if [[ -n "$new_workflows" ]]; then
 fi
 
 echo
+if [[ "$push" == "no" ]]; then
+  echo "Rebased main; not pushed (--no-push)."
+  exit 0
+fi
 read -r -p "Push main and deploy seo.mybobai.com? [y/N] " answer
 if [[ "$answer" != "y" ]]; then
   echo "Not pushed. Push later with: git push --force-with-lease origin main"

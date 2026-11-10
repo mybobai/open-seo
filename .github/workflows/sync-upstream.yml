@@ -1,0 +1,103 @@
+name: Sync OpenSEO upstream
+
+on:
+  # Mondays 06:00 UTC.
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Rebases main onto every-app/main with scripts/altys-update-upstream.sh,
+  # runs the deploy's checks on the result, and force-pushes main, which
+  # deploys seo.mybobai.com (deploy.yml). A conflict or a failed check pushes
+  # nothing and opens an issue; finish it locally with the same script.
+  sync:
+    if: github.repository == 'mybobai/open-seo'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
+      issues: write
+    concurrency:
+      group: sync-openseo-upstream
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Rebase main onto every-app/main
+        id: rebase
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add every-app https://github.com/every-app/open-seo.git
+          git fetch -q every-app main
+          # The script moves `upstream` from where main last rebased.
+          git branch upstream "$(git merge-base main every-app/main)"
+          echo "base=$(git rev-parse main)" >> "$GITHUB_OUTPUT"
+          scripts/altys-update-upstream.sh --no-push
+          if [[ "$(git rev-parse main)" == "$(git rev-parse origin/main)" ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.rebase.outputs.changed == 'true'
+        uses: pnpm/action-setup@v4
+      - if: steps.rebase.outputs.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - if: steps.rebase.outputs.changed == 'true'
+        run: pnpm install --frozen-lockfile
+      - if: steps.rebase.outputs.changed == 'true'
+        run: pnpm run ci:check
+      - if: steps.rebase.outputs.changed == 'true'
+        run: pnpm run test:ci
+      # Authenticate only after the checks, so the credentials file never sits
+      # in the tree they scan.
+      - if: steps.rebase.outputs.changed == 'true'
+        name: Authenticate to Google Cloud without a stored key
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: altys-prod
+          workload_identity_provider: projects/${{ vars.GOOGLE_CLOUD_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/bob-ai-github-pool/providers/bob-ai-github-provider
+          service_account: bob-ai-open-seo-cicd@altys-prod.iam.gserviceaccount.com
+      # GITHUB_TOKEN can't push upstream commits that touch .github/workflows,
+      # and its pushes don't start deploy.yml. This token can do both. It lives
+      # in Secret Manager, written by Pulumi (mybobai/backend infra).
+      - if: steps.rebase.outputs.changed == 'true'
+        name: Read the GitHub push token
+        id: secrets
+        uses: google-github-actions/get-secretmanager-secrets@v2
+        with:
+          secrets: |-
+            github_token:altys-prod/OPENSEO_SYNC_GITHUB_TOKEN
+      - if: steps.rebase.outputs.changed == 'true'
+        name: Push main (deploys seo.mybobai.com)
+        env:
+          GH_PUSH_TOKEN: ${{ steps.secrets.outputs.github_token }}
+          BASE: ${{ steps.rebase.outputs.base }}
+        run: |
+          git push --force-with-lease="main:$BASE" \
+            "https://x-access-token:${GH_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" main:main
+      - if: failure()
+        name: Open an issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Weekly upstream sync failed"
+          existing=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number')
+          body="The weekly sync didn't push: $RUN_URL. Nothing was deployed. Run scripts/altys-update-upstream.sh locally to finish it."
+          if [[ -n "$existing" ]]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
