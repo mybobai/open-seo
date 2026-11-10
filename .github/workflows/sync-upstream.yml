@@ -1,9 +1,10 @@
 name: Sync OpenSEO upstream
 
 on:
-  # Mondays 06:00 UTC.
+  # Mondays 18:00 UTC: 10am Pacific in winter, 11am in summer (cron is UTC
+  # only). Daytime on a weekday, so someone is around if the deploy breaks.
   schedule:
-    - cron: "0 6 * * 1"
+    - cron: "0 18 * * 1"
   workflow_dispatch:
 
 permissions:
